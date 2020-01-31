@@ -30,8 +30,20 @@ return_tensors  = utils.read_pb_return_tensors(graph, pb_file, return_elements)
 
 with tf.Session(graph=graph) as sess:
     vid = cv2.VideoCapture(video_path)
+
+    width = vid.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    fps = vid.get(cv2.CAP_PROP_FPS)
+
+    fourcc = cv2.VideoWriter_fourcc('M', 'P', '4', 'V')
+    out = cv2.VideoWriter('output.mp4', fourcc, int(fps), (int(width), int(height)))
+
     while True:
         return_value, frame = vid.read()
+
+        if frame is None:
+            break
+
         if return_value:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame)
@@ -50,7 +62,7 @@ with tf.Session(graph=graph) as sess:
                                     np.reshape(pred_mbbox, (-1, 5 + num_classes)),
                                     np.reshape(pred_lbbox, (-1, 5 + num_classes))], axis=0)
 
-        bboxes = utils.postprocess_boxes(pred_bbox, frame_size, input_size, 0.3)
+        bboxes = utils.postprocess_boxes(pred_bbox, frame_size, input_size, 0.45) #0.3
         bboxes = utils.nms(bboxes, 0.45, method='nms')
         image = utils.draw_bbox(frame, bboxes)
 
@@ -60,9 +72,12 @@ with tf.Session(graph=graph) as sess:
         info = "time: %.2f ms" %(1000*exec_time)
         cv2.namedWindow("result", cv2.WINDOW_AUTOSIZE)
         result = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        out.write(result)
         cv2.imshow("result", result)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
 
-
+vid.release()
+out.release()
+cv2.distroyAllWindows()
 
 
